@@ -31,6 +31,7 @@ namespace SupersonicWing
             WingSim sim = new WingSim(geometry, gridSize, beta);
             sim.RunSim();
 
+            sim.IntegrateAndPrintCoefficients(angleOfAttack * Math.PI / 180);
             Console.ReadKey();
         }
     }

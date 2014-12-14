@@ -57,39 +57,7 @@ namespace SupersonicWing
                     if (vortCell.exists)
                     {
                         countCells++;
-                        if (wing.TryFindSlopeAtPoint(test + new Vector3(1, 0, 0)))
-                            vortCell.influenceFactor = 1;
-
-                        if(tri.p0.x > test.x)
-                        {
-                            double x1;
-                            if ((tri.p0.y - test.y) * (tri.p1.y - test.y) < 0)
-                                x1 = (tri.p0.x - tri.p1.x) / (tri.p0.y - tri.p1.y) * (test.y - tri.p1.y) + tri.p1.x;
-                            else
-                                x1 = (tri.p0.x - tri.p2.x) / (tri.p0.y - tri.p2.y) * (test.y - tri.p2.y) + tri.p2.x;
-                            
-                            vortCell.influenceFactor = x1 - test.x;
-                        }
-                        else if (tri.p1.x > test.x)
-                        {
-                            double x1;
-                            if ((tri.p0.y - test.y) * (tri.p1.y - test.y) < 0)
-                                x1 = (tri.p0.x - tri.p1.x) / (tri.p0.y - tri.p1.y) * (test.y - tri.p1.y) + tri.p1.x;
-                            else
-                                x1 = (tri.p1.x - tri.p2.x) / (tri.p1.y - tri.p2.y) * (test.y - tri.p2.y) + tri.p2.x;
-
-                            vortCell.influenceFactor = x1 - test.x;
-                        }
-                        else
-                        {
-                            double x1;
-                            if ((tri.p0.y - test.y) * (tri.p2.y - test.y) < 0)
-                                x1 = (tri.p0.x - tri.p2.x) / (tri.p0.y - tri.p2.y) * (test.y - tri.p2.y) + tri.p2.x;
-                            else
-                                x1 = (tri.p1.x - tri.p2.x) / (tri.p1.y - tri.p2.y) * (test.y - tri.p2.y) + tri.p2.x;
-
-                            vortCell.influenceFactor = x1 - test.x;
-                        }
+                        vortCell.influenceFactor = CalculateInfluenceFactor(tri, test);
                     }
 
                     vortexGrid[i, j] = vortCell;
@@ -100,6 +68,51 @@ namespace SupersonicWing
             Console.WriteLine("Grid init time elapsed: " + watch.ElapsedMilliseconds.ToString() + " ms");
             watch.Reset();
             Console.WriteLine(countCells + " vortex cells for sim.");
+        }
+
+        private double CalculateInfluenceFactor(Triangle tri, Vector3 test)
+        {
+            if (wing.TryFindSlopeAtPoint(test + new Vector3(1, 0, 0)))
+                return 1;
+
+            double forwardOffset = 0;
+
+            if (tri.p0.x > test.x)
+            {
+                double x1;
+                if ((tri.p0.y - test.y) * (tri.p1.y - test.y) < 0)
+                    x1 = (tri.p0.x - tri.p1.x) / (tri.p0.y - tri.p1.y) * (test.y - tri.p1.y) + tri.p1.x;
+                else
+                    x1 = (tri.p0.x - tri.p2.x) / (tri.p0.y - tri.p2.y) * (test.y - tri.p2.y) + tri.p2.x;
+
+                forwardOffset = x1 - test.x;
+            }
+            else if (tri.p1.x > test.x)
+            {
+                double x1;
+                if ((tri.p0.y - test.y) * (tri.p1.y - test.y) < 0)
+                    x1 = (tri.p0.x - tri.p1.x) / (tri.p0.y - tri.p1.y) * (test.y - tri.p1.y) + tri.p1.x;
+                else
+                    x1 = (tri.p1.x - tri.p2.x) / (tri.p1.y - tri.p2.y) * (test.y - tri.p2.y) + tri.p2.x;
+
+                forwardOffset = x1 - test.x;
+            }
+            else
+            {
+                double x1;
+                if ((tri.p0.y - test.y) * (tri.p2.y - test.y) < 0)
+                    x1 = (tri.p0.x - tri.p2.x) / (tri.p0.y - tri.p2.y) * (test.y - tri.p2.y) + tri.p2.x;
+                else
+                    x1 = (tri.p1.x - tri.p2.x) / (tri.p1.y - tri.p2.y) * (test.y - tri.p2.y) + tri.p2.x;
+
+                forwardOffset = x1 - test.x;
+            }
+
+            Triangle oldTri = tri;
+            if (wing.TryFindSlopeAtPoint(test + new Vector3(forwardOffset + 1e-6, 0, 0), out tri) && !oldTri.Equals(tri))
+                return CalculateInfluenceFactor(tri, test);
+            else
+                return forwardOffset;
         }
 
         public void RunSim()
@@ -160,6 +173,31 @@ namespace SupersonicWing
             }
 
             writer.Close();
+        }
+
+        public void IntegrateAndPrintCoefficients(double angleOfAttackRad)
+        {
+            double cL, cD, area;
+            cL = 0;
+            area = 0;
+
+            for (int i = 0; i < this.iGridSize; i++)
+                for (int j = 0; j < this.jGridSize; j++)
+                {
+                    VortexCell vortCell = vortexGrid[i, j];
+                    if (!vortCell.exists)
+                        continue;
+
+                    cL += vortCell.deltaU * -2 * vortCell.influenceFactor;
+                    area += vortCell.influenceFactor;
+                }
+
+            cL /= area;
+            cD = cL * Math.Tan(angleOfAttackRad);
+
+            Console.WriteLine("C_L: " + cL);
+            Console.WriteLine("C_D: " + cD);
+            Console.WriteLine("L/D: " + cL / cD);
         }
 
         private double CalculateInfluence(int iIndex, int jIndex)

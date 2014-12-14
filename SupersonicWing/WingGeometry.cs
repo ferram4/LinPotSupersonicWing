@@ -87,6 +87,19 @@ namespace SupersonicWing
             }
             return false;
         }
+        public bool TryFindSlopeAtPoint(Vector3 test, out Triangle tri)
+        {
+            tri = new Triangle();
+            for (int i = 0; i < transformedTriangles.Length; i++)
+            {
+                if (transformedTriangles[i].Contains(test))
+                {
+                    tri = transformedTriangles[i];
+                    return true;
+                }
+            }
+            return false;
+        }
         public bool TryFindSlopeAtPoint(Vector3 test)
         {
             for (int i = 0; i < transformedTriangles.Length; i++)
