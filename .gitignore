@@ -1,0 +1,8 @@
+/SupersonicWing/bin/Debug/*
+/SupersonicWing/bin/Release/*
+/SupersonicWing/obj/Debug/*
+/SupersonicWing/obj/Release/*
+
+*.exe
+*.zip
+*.csv
