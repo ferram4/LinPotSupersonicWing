@@ -48,11 +48,6 @@ namespace SupersonicWing
 
             wingTriangles = unflattenedTris;
 
-            foreach (Triangle tri in wingTriangles)
-                for (int j = 0; j < 3; j++)
-                    Console.WriteLine(tri[j].x + " " + tri[j].y + " " + tri[j].z);
-
-
             transformedTriangles = new Triangle[wingTriangles.Length];      //Initialize these arrays now
             currentTriAngle = new double[unflattenedTris.Length];           
 
