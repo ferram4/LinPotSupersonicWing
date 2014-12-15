@@ -42,6 +42,8 @@ namespace SupersonicWing
         VortexCell[,] vortexGrid;
         static double[,] influenceGrid;
 
+        public int countCells = 0;
+
         public WingSim(WingGeometry wing, int horizontalGridSize, double beta)
         {
             this.wing = wing;
@@ -111,8 +113,6 @@ namespace SupersonicWing
         private void InitializeVortexGrid()
         {
             vortexGrid = new VortexCell[this.iGridSize, this.jGridSize];
-
-            int countCells = 0;
 
             for (int i = 0; i < iGridSize; i++)
                 for (int j = 0; j < jGridSize; j++)
@@ -186,10 +186,11 @@ namespace SupersonicWing
 
         public void RunSim()
         {
-            double[] farInfluence = new double[jGridSize];
+            double[] farInfluence = new double[jGridSize];      //used to store far influences, since they do not change in the relaxation procedure
+
             for (int i = 0; i < this.iGridSize; i++)
             {
-                for (int j = 0; j < this.jGridSize; j++)
+                for (int j = 0; j < this.jGridSize; j++)        //Calculating the initial value for the cell
                 {
                     VortexCell vortCell = vortexGrid[i, j];
                     if (!vortCell.exists)
@@ -198,28 +199,30 @@ namespace SupersonicWing
                     vortCell.deltaU = -twoDivBeta * vortCell.localSlope;
                     farInfluence[j] = CalculateFarInfluence(i, j);
                     vortCell.deltaU += farInfluence[j] + CalculateNearInfluence(i, j);
-                    //vortexGrid[i, j] = vortCell;
                 }
-                if (i - 1 > 0)
+                if (i - 1 > 0)      //If this isn't the frontmost row, we want to go and adjust the velocities of the i-1 row in order to smooth out some oscillations
                 {
-                    for (int j = 0; j < this.jGridSize; j++)
+                    for (int j = 0; j <= this.jGridSize; j++)
                     {
-                        VortexCell vortCell = vortexGrid[i - 1, j];
-                        if (!vortCell.exists)
-                            continue;
+                        VortexCell vortCell;
+                        if (j < this.jGridSize)
+                        {
+                            vortCell = vortexGrid[i - 1, j];
+                            if (!vortCell.exists)
+                                continue;
 
-                        vortCell.deltaU = vortCell.deltaU * vortCell.forwardVelInfluence + vortexGrid[i, j].deltaU * vortCell.backwardVelInfluence;
-                        //vortexGrid[i - 1, j] = vortCell;
-                    }
-                    for (int j = 0; j < this.jGridSize; j++)
-                    {
-                        VortexCell vortCell = vortexGrid[i, j];
-                        if (!vortCell.exists)
-                            continue;
+                            vortCell.deltaU = vortCell.deltaU * vortCell.forwardVelInfluence + vortexGrid[i, j].deltaU * vortCell.backwardVelInfluence;
+                        }
+                        int jmin1 = j - 1;
+                        if (jmin1 >= 0)
+                        {
+                            vortCell = vortexGrid[i, jmin1];
+                            if (!vortCell.exists)
+                                continue;
 
-                        vortCell.deltaU = -twoDivBeta * vortCell.localSlope;
-                        vortCell.deltaU += farInfluence[j] + CalculateNearInfluence(i, j);
-                        //vortexGrid[i, j] = vortCell;
+                            vortCell.deltaU = -twoDivBeta * vortCell.localSlope;
+                            vortCell.deltaU += farInfluence[jmin1] + CalculateNearInfluence(i, jmin1);
+                        }
                     }
                 }
             }
@@ -273,6 +276,9 @@ namespace SupersonicWing
             double influence = 0;
             int i = iIndex - 1;
             int forwardIndex = iIndex - i;
+
+            if (i < 0)
+                return 0;
 
             for (int j = jIndex - forwardIndex; j <= jIndex + forwardIndex; j++)        //Only get points in a triangle in front of the point in question
             {

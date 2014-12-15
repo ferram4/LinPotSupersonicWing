@@ -66,6 +66,7 @@ namespace SupersonicWing
             }
             watch.Stop();
 
+            Console.WriteLine("Sim Cells: " + sim.countCells);
             Console.WriteLine("Total elapsed time: " + watch.ElapsedMilliseconds + " ms");
             Console.WriteLine("Elapsed Time Per Sim: " + (double)watch.ElapsedMilliseconds / numSims + " ms");
 
