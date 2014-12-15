@@ -40,6 +40,7 @@ namespace SupersonicWing
         const double INV_PI = 0.31830988618379067153776752674503;
 
         VortexCell[,] vortexGrid;
+        static double[,] influenceGrid;
 
         public WingSim(WingGeometry wing, int horizontalGridSize, double beta)
         {
@@ -52,10 +53,62 @@ namespace SupersonicWing
             this.beta = beta;
             twoDivBeta = 2 / beta;
 
-            InitializeGrid();
+            InitializeVortexGrid();
+            CheckInfluenceGrid();
         }
 
-        private void InitializeGrid()
+        private void CheckInfluenceGrid()
+        {
+            if (influenceGrid == null)
+            {
+                influenceGrid = new double[iGridSize, jGridSize];
+                RecalculateInfluenceGrid();
+            }
+            else
+            {
+                int iLength, jLength;
+                iLength = influenceGrid.GetLength(0);
+                jLength = influenceGrid.GetLength(1);
+
+                if (iLength < iGridSize || jLength < jGridSize)
+                {
+                    influenceGrid = new double[Math.Max(iGridSize, iLength), Math.Max(jGridSize, jLength)];
+                    RecalculateInfluenceGrid();
+                }
+            }
+        }
+
+        private void RecalculateInfluenceGrid()
+        {
+            int iLength, jLength;
+            iLength = influenceGrid.GetLength(0);
+            jLength = influenceGrid.GetLength(1);
+
+            Console.WriteLine("Recalcing Influences");
+
+            for (int i = 1; i < iLength; i++)         //Start from the points right in front of it and work forward to find all influences
+            {
+                for (int j = 0; j <= i; j++)        //Only get points in a triangle in front of the point in question
+                {
+                    if (j >= jLength)
+                        continue;
+
+                    double forwardBack = i + 0.5;
+                    double forwardBackSqr = forwardBack * forwardBack;
+
+                    double sidePos = j + 0.5;
+                    double sideNeg = sidePos - 1;
+
+                    double curInfluence = Math.Sqrt((forwardBackSqr - sideNeg * sideNeg)) / (forwardBack * sideNeg);
+                    curInfluence -= Math.Sqrt((forwardBackSqr - sidePos * sidePos)) / (forwardBack * sidePos);
+                    curInfluence *= INV_PI;
+
+                    influenceGrid[i, j] = curInfluence;
+                }
+            }
+        }
+
+        private void InitializeVortexGrid()
         {
             vortexGrid = new VortexCell[this.iGridSize, this.jGridSize];
 
@@ -141,7 +194,7 @@ namespace SupersonicWing
 
                     vortCell.deltaU = -twoDivBeta * vortCell.localSlope;
                     vortCell.deltaU += CalculateInfluence(i, j);
-                    vortexGrid[i, j] = vortCell;
+                    //vortexGrid[i, j] = vortCell;
                 }
                 if (i - 1 > 0)
                 {
@@ -152,7 +205,7 @@ namespace SupersonicWing
                             continue;
 
                         vortCell.deltaU = vortCell.deltaU * 0.5 * (1 + vortCell.influenceFactor / (1 + vortCell.influenceFactor)) + vortexGrid[i, j].deltaU * 0.5 / (1 + vortCell.influenceFactor);
-                        vortexGrid[i - 1, j] = vortCell;
+                        //vortexGrid[i - 1, j] = vortCell;
                     }
                     for (int j = 0; j < this.jGridSize; j++)
                     {
@@ -162,7 +215,7 @@ namespace SupersonicWing
 
                         vortCell.deltaU = -twoDivBeta * vortCell.localSlope;
                         vortCell.deltaU += CalculateInfluence(i, j);
-                        vortexGrid[i, j] = vortCell;
+                        //vortexGrid[i, j] = vortCell;
                     }
                 }
             }
@@ -225,14 +278,15 @@ namespace SupersonicWing
                     if (!otherCell.exists)
                         continue;
 
-                    double forwardBack = forwardIndex + 0.5;
-                    double forwardBackSqr = forwardBack * forwardBack;
+                    double curInfluence = influenceGrid[forwardIndex, Math.Abs(jIndex - j)];
+                    /*                    double forwardBack = forwardIndex + 0.5;
+                                        double forwardBackSqr = forwardBack * forwardBack;
 
-                    double sidePos = jIndex - j + 0.5;
-                    double sideNeg = sidePos - 1;
+                                        double sidePos = jIndex - j + 0.5;
+                                        double sideNeg = sidePos - 1;
 
-                    double curInfluence = Math.Sqrt((forwardBackSqr - sideNeg * sideNeg)) / (forwardBack * sideNeg);
-                    curInfluence -= Math.Sqrt((forwardBackSqr - sidePos * sidePos)) / (forwardBack * sidePos);
+                                        double curInfluence = Math.Sqrt((forwardBackSqr - sideNeg * sideNeg)) / (forwardBack * sideNeg);
+                                        curInfluence -= Math.Sqrt((forwardBackSqr - sidePos * sidePos)) / (forwardBack * sidePos);*/
 
                     curInfluence *= otherCell.deltaU * otherCell.influenceFactor;
 
@@ -240,11 +294,12 @@ namespace SupersonicWing
                 }
             }
 
-            return influence * INV_PI;
+
+            return influence;
         }
     }
 
-    struct VortexCell
+    class VortexCell
     {
         public bool exists;
         public double influenceFactor;
