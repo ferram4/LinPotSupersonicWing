@@ -40,7 +40,6 @@ namespace SupersonicWing
         const double INV_PI = 0.31830988618379067153776752674503;
 
         VortexCell[,] vortexGrid;
-        Stopwatch watch;
 
         public WingSim(WingGeometry wing, int horizontalGridSize, double beta)
         {
@@ -53,18 +52,15 @@ namespace SupersonicWing
             this.beta = beta;
             twoDivBeta = 2 / beta;
 
-            watch = new Stopwatch();
             InitializeGrid();
         }
 
         private void InitializeGrid()
         {
-            watch.Start();
             vortexGrid = new VortexCell[this.iGridSize, this.jGridSize];
 
             int countCells = 0;
 
-            Console.WriteLine(iGridSize + " " + jGridSize);
             for (int i = 0; i < iGridSize; i++)
                 for (int j = 0; j < jGridSize; j++)
                 {
@@ -86,11 +82,6 @@ namespace SupersonicWing
                     vortexGrid[i, j] = vortCell;
 
                 }
-
-            watch.Stop();
-            Console.WriteLine("Grid init time elapsed: " + watch.ElapsedMilliseconds.ToString() + " ms");
-            watch.Reset();
-            Console.WriteLine(countCells + " vortex cells for sim.");
         }
 
         private double CalculateInfluenceFactor(Triangle tri, Vector3 test)
@@ -140,7 +131,6 @@ namespace SupersonicWing
 
         public void RunSim()
         {
-            watch.Start();
             for (int i = 0; i < this.iGridSize; i++)
             {
                 for (int j = 0; j < this.jGridSize; j++)
@@ -176,12 +166,9 @@ namespace SupersonicWing
                     }
                 }
             }
-            watch.Stop();
-            Console.WriteLine("Time elapsed: " + watch.ElapsedMilliseconds.ToString() + " ms");
-            DumpToFile();
         }
 
-        private void DumpToFile()
+        public void DumpToFile()
         {
             StreamWriter writer = new StreamWriter(new FileStream("sim.csv", FileMode.Create));
 

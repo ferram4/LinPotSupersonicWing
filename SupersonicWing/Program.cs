@@ -44,13 +44,32 @@ namespace SupersonicWing
             Console.Write("Choose Sideslip Angle: ");
             double sideslip = double.Parse(Console.ReadLine());
 
-            geometry.ScaleWingBased(sideslip * Math.PI / 180, angleOfAttack * Math.PI / 180, beta);
-
             Console.Write("Choose Horizontal Grid Size: ");
             int gridSize = int.Parse(Console.ReadLine());
 
+            Console.Write("Num Sims: ");
+            int numSims = int.Parse(Console.ReadLine());
+            System.Diagnostics.Stopwatch watch = new System.Diagnostics.Stopwatch();
+
+            int i = 0;
+            geometry.ScaleWingBased(sideslip * Math.PI / 180, angleOfAttack * Math.PI / 180, beta);
             WingSim sim = new WingSim(geometry, gridSize, beta);
-            sim.RunSim();
+
+            watch.Start();
+            for (i = 0; i < numSims; i++)
+            {
+                geometry.ScaleWingBased(sideslip * Math.PI / 180, angleOfAttack * Math.PI / 180, beta);
+
+
+                sim = new WingSim(geometry, gridSize, beta);
+                sim.RunSim();
+            }
+            watch.Stop();
+
+            Console.WriteLine("Total elapsed time: " + watch.ElapsedMilliseconds + " ms");
+            Console.WriteLine("Elapsed Time Per Sim: " + (double)watch.ElapsedMilliseconds / numSims + " ms");
+
+            sim.DumpToFile();
 
             sim.IntegrateAndPrintCoefficients(angleOfAttack * Math.PI / 180);
             Console.ReadKey();
