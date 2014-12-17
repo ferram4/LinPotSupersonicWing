@@ -47,6 +47,8 @@ namespace SupersonicWing
             Console.Write("Choose Horizontal Grid Size: ");
             int gridSize = int.Parse(Console.ReadLine());
 
+            Console.Write("Choose Influence Threshold: ");
+
             Console.Write("Num Sims: ");
             int numSims = int.Parse(Console.ReadLine());
             System.Diagnostics.Stopwatch watch = new System.Diagnostics.Stopwatch();
@@ -69,9 +71,15 @@ namespace SupersonicWing
             Console.WriteLine("Sim Cells: " + sim.countCells);
             Console.WriteLine("Total elapsed time: " + watch.ElapsedMilliseconds + " ms");
             Console.WriteLine("Elapsed Time Per Sim: " + (double)watch.ElapsedMilliseconds / numSims + " ms");
+            Console.WriteLine();
+            Console.WriteLine("Total elapsed gridding time: " + WingSim.gridWatch.ElapsedMilliseconds + " ms");
+            Console.WriteLine("Elapsed gridding time Per Sim: " + (double)WingSim.gridWatch.ElapsedMilliseconds / numSims + " ms");
+            Console.WriteLine();
+            Console.WriteLine("Total elapsed simming time: " + WingSim.simWatch.ElapsedMilliseconds + " ms");
+            Console.WriteLine("Elapsed simming time Per Sim: " + (double)WingSim.simWatch.ElapsedMilliseconds / numSims + " ms");
 
             sim.DumpToFile();
-
+            sim.DumpToInfluenceCoeffs();
             sim.IntegrateAndPrintCoefficients(angleOfAttack * Math.PI / 180);
             Console.ReadKey();
         }

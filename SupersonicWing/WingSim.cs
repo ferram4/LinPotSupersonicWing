@@ -35,17 +35,21 @@ namespace SupersonicWing
 
         int jGridSize, iGridSize;
         double gridScale, invGridScale;
-        double beta, twoDivBeta;
+        double beta, negTwoDivBeta;
 
         const double INV_PI = 0.31830988618379067153776752674503;
 
         VortexCell[,] vortexGrid;
+
         static double[,] influenceGrid;
 
         public int countCells = 0;
+        public static Stopwatch gridWatch = new Stopwatch();
+        public static Stopwatch simWatch = new Stopwatch();
 
         public WingSim(WingGeometry wing, int horizontalGridSize, double beta)
         {
+            gridWatch.Start();
             this.wing = wing;
             this.jGridSize = horizontalGridSize;
             gridScale = (double)horizontalGridSize / (wing.maxY - wing.minY);
@@ -53,11 +57,11 @@ namespace SupersonicWing
             iGridSize = (int)Math.Round(gridScale * (wing.maxX - wing.minX));
 
             this.beta = beta;
-            twoDivBeta = 2 / beta;
+            negTwoDivBeta = -2 / beta;
 
             InitializeVortexGrid();
             CheckInfluenceGrid();
-        }
+            gridWatch.Stop();        }
 
         private void CheckInfluenceGrid()
         {
@@ -130,12 +134,11 @@ namespace SupersonicWing
                     {
                         countCells++;
                         vortCell.influenceFactor = CalculateInfluenceFactor(tri, test);
-                        vortCell.forwardVelInfluence = 0.5 * (1 + vortCell.influenceFactor / (1 + vortCell.influenceFactor));
-                        vortCell.backwardVelInfluence = 0.5 / (1 + vortCell.influenceFactor);
+                        vortCell.forwardVelInfluence = 0.5f * (1 + vortCell.influenceFactor / (1 + vortCell.influenceFactor));
+                        vortCell.backwardVelInfluence = 0.5f / (1 + vortCell.influenceFactor);
                     }
 
                     vortexGrid[i, j] = vortCell;
-
                 }
         }
 
@@ -186,46 +189,57 @@ namespace SupersonicWing
 
         public void RunSim()
         {
+            simWatch.Start();
             double[] farInfluence = new double[jGridSize];      //used to store far influences, since they do not change in the relaxation procedure
 
-            for (int i = 0; i < this.iGridSize; i++)
+            VortexCell vortCell;
+
+            for (int j = 0; j < this.jGridSize; j++ )
+            {
+                vortCell = vortexGrid[0, j];
+                if (!vortCell.exists)
+                    continue;
+
+                vortCell.deltaU = negTwoDivBeta * vortCell.localSlope;
+            }
+
+            for (int i = 1; i < this.iGridSize; i++)
             {
                 for (int j = 0; j < this.jGridSize; j++)        //Calculating the initial value for the cell
                 {
-                    VortexCell vortCell = vortexGrid[i, j];
+
+                    vortCell = vortexGrid[i, j];
                     if (!vortCell.exists)
                         continue;
 
-                    vortCell.deltaU = -twoDivBeta * vortCell.localSlope;
+                    vortCell.deltaU = negTwoDivBeta * vortCell.localSlope;      //calculate the effects on this panel
                     farInfluence[j] = CalculateFarInfluence(i, j);
                     vortCell.deltaU += farInfluence[j] + CalculateNearInfluence(i, j);
                 }
-                if (i - 1 > 0)      //If this isn't the frontmost row, we want to go and adjust the velocities of the i-1 row in order to smooth out some oscillations
+
+                for (int j = 0; j <= this.jGridSize; j++)
                 {
-                    for (int j = 0; j <= this.jGridSize; j++)
+                    if (j < this.jGridSize)
                     {
-                        VortexCell vortCell;
-                        if (j < this.jGridSize)
-                        {
-                            vortCell = vortexGrid[i - 1, j];
-                            if (!vortCell.exists)
-                                continue;
+                        vortCell = vortexGrid[i - 1, j];            //get the one in the row in front...
+                        if (!vortCell.exists)
+                            continue;
+                        //and adjust its pert vel to remove oscillations
+                        vortCell.deltaU = vortCell.deltaU * vortCell.forwardVelInfluence + vortexGrid[i, j].deltaU * vortCell.backwardVelInfluence;
+                    }
+                    int jmin1 = j - 1;          //now, move back in the row and re-calc for this one to make sure things are okay
+                    if (jmin1 >= 0)
+                    {
+                        vortCell = vortexGrid[i, jmin1];
+                        if (!vortCell.exists)
+                            continue;
 
-                            vortCell.deltaU = vortCell.deltaU * vortCell.forwardVelInfluence + vortexGrid[i, j].deltaU * vortCell.backwardVelInfluence;
-                        }
-                        int jmin1 = j - 1;
-                        if (jmin1 >= 0)
-                        {
-                            vortCell = vortexGrid[i, jmin1];
-                            if (!vortCell.exists)
-                                continue;
-
-                            vortCell.deltaU = -twoDivBeta * vortCell.localSlope;
-                            vortCell.deltaU += farInfluence[jmin1] + CalculateNearInfluence(i, jmin1);
-                        }
+                        vortCell.deltaU = negTwoDivBeta * vortCell.localSlope;
+                        vortCell.deltaU += farInfluence[jmin1] + CalculateNearInfluence(i, jmin1);
                     }
                 }
             }
+            simWatch.Stop();
         }
 
         public void DumpToFile()
@@ -245,6 +259,26 @@ namespace SupersonicWing
             writer.Close();
         }
 
+        public void DumpToInfluenceCoeffs()
+        {
+            int iLength, jLength;
+            iLength = influenceGrid.GetLength(0);
+            jLength = influenceGrid.GetLength(1);
+            StreamWriter writer = new StreamWriter(new FileStream("influence.csv", FileMode.Create));
+
+            for (int i = 0; i < iLength; i++)
+            {
+                for (int j = 0; j < jLength; j++)
+                {
+                    writer.Write(influenceGrid[i, j]);
+                    writer.Write(",");
+                }
+                writer.WriteLine();
+            }
+
+            writer.Close();
+        }
+        
         public void IntegrateAndPrintCoefficients(double angleOfAttackRad)
         {
             double cL, cD, area;
@@ -275,12 +309,11 @@ namespace SupersonicWing
         {
             double influence = 0;
             int i = iIndex - 1;
-            int forwardIndex = iIndex - i;
 
             if (i < 0)
                 return 0;
 
-            for (int j = jIndex - forwardIndex; j <= jIndex + forwardIndex; j++)        //Only get points in a triangle in front of the point in question
+            for (int j = jIndex - 1; j <= jIndex + 1; j++)        //Only get points in a triangle in front of the point in question
             {
                 if (j < 0 || j >= jGridSize)
                     continue;
@@ -289,7 +322,7 @@ namespace SupersonicWing
                 if (!otherCell.exists)
                     continue;
 
-                double curInfluence = influenceGrid[forwardIndex, Math.Abs(jIndex - j)];
+                double curInfluence = influenceGrid[1, Math.Abs(jIndex - j)];
                 curInfluence *= otherCell.deltaU * otherCell.influenceFactor;
 
                 influence += curInfluence;
@@ -302,7 +335,8 @@ namespace SupersonicWing
         private double CalculateFarInfluence(int iIndex, int jIndex)
         {
             double influence = 0;
-            for (int i = iIndex - 2; i >= 0; i--)         //Start from the points right in front of it and work forward to find all influences
+            int endI = iIndex - 1;
+            for (int i = 0; i < endI; i++)         //Start from the points right in front of it and work forward to find all influences
             {
                 int forwardIndex = iIndex - i;
                 for (int j = jIndex - forwardIndex; j <= jIndex + forwardIndex; j++)        //Only get points in a triangle in front of the point in question
