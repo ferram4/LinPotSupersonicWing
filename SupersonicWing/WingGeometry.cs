@@ -88,7 +88,7 @@ namespace SupersonicWing
         }
 
         //Returns true if a triangle is found there
-        public bool TryFindSlopeAtPoint(Vector3 test, out double slope, out Triangle tri)
+        public bool TryFindSlopeAtPoint(ref Vector3 test, out double slope, out Triangle tri)
         {
             slope = 0;
             tri = new Triangle();
